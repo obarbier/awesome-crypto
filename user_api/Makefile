@@ -9,4 +9,4 @@ go-generate:
 	$(GO_CMD) generate ./domain/ports.go
 
 test: bootstrap go-generate
-	$(GO_CMD) test
+	$(GO_CMD) test ./...
