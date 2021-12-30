@@ -1,6 +1,7 @@
 package http
 
 import (
+	"github.com/go-playground/validator/v10"
 	"github.com/obarbier/awesome-crypto/user_api/domain"
 	"net/http"
 )
@@ -8,6 +9,7 @@ import (
 type HandlerProperties struct {
 	userService  domain.IUserService
 	recoveryMode bool
+	validate     *validator.Validate
 }
 
 func Handler(hp HandlerProperties) http.Handler {
@@ -17,7 +19,7 @@ func Handler(hp HandlerProperties) http.Handler {
 	case hp.recoveryMode:
 	default:
 		// TODO: adding auth wrapper
-		mux.Handle("/v1/user", handleUserOperation(hp.userService))
+		mux.Handle("/v1/user", handleUserOperation(hp))
 	}
 	return mux
 }

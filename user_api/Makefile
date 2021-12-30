@@ -8,5 +8,5 @@ bootstrap:
 go-generate:
 	$(GO_CMD) generate ./domain/ports.go
 
-test:
-	$(GO_CMD) test
+test: bootstrap go-generate
+	$(GO_CMD) test ./...

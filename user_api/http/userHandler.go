@@ -2,15 +2,14 @@ package http
 
 import (
 	"context"
-	"github.com/obarbier/awesome-crypto/user_api/domain"
 	"net/http"
 )
 
 type UserCreateRequest struct {
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-	UserId    string `json:"userId"`
-	Password  string `json:"password"`
+	FirstName string `json:"firstName" validate:"required"`
+	LastName  string `json:"lastName"  validate:"required"`
+	UserId    string `json:"userId"    validate:"required"`
+	Password  string `json:"password"  validate:"required"`
 }
 
 type UserCreateResponse struct {
@@ -21,73 +20,59 @@ type UserCreateResponse struct {
 	Password  string `json:"password"`
 }
 
-func handleUserOperation(service domain.IUserService) http.Handler {
+func handleUserOperation(hp HandlerProperties) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		// TODO be able to pass context down
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(r.Context())
 		defer cancel()
 
 		switch {
 		case r.Method == "GET":
-			handleGetUser(ctx, service, w, r)
+			handleGetUser(ctx, hp, w, r)
 		case r.Method == "POST":
-			handleCreateUser(ctx, service, w, r)
+			handleCreateUser(ctx, hp, w, r)
 		case r.Method == "DELETE":
-			handleDeleteUser(ctx, service, w, r)
+			handleDeleteUser(ctx, hp, w, r)
 		case r.Method == "PUT":
-			handleUpdateUser(ctx, service, w, r)
+			handleUpdateUser(ctx, hp, w, r)
 		default:
 			respondError(w, http.StatusMethodNotAllowed, nil)
 		}
 	})
 }
 
-func handleCreateUser(ctx context.Context, service domain.IUserService, w http.ResponseWriter, r *http.Request) {
+func handleCreateUser(ctx context.Context, hp HandlerProperties, w http.ResponseWriter, r *http.Request) {
 	var req UserCreateRequest
 	if _, err := parseJSONRequest(r, w, &req); err != nil {
 		respondError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	// TODO: in a hexagonal architecture should input validation live in service handler
-	// TODO: Validation
-	firstName := req.FirstName
-	if len(firstName) == 0 {
-		// TODO : error
-	}
-
-	lastName := req.LastName
-	if len(lastName) == 0 {
-		// TODO : error
-	}
-	userId := req.UserId
-	if len(userId) == 0 {
-		// TODO : error
-	}
-	password := req.Password
-	if len(password) < 6 {
-		// TODO : error
-	}
-
-	_, err := service.CreateUser(ctx, firstName, lastName, userId, password)
+	err := hp.validate.Struct(req)
 	if err != nil {
-		// TODO: Handle errors
+		respondError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	_, err = hp.userService.CreateUser(ctx, req.FirstName, req.LastName, req.UserId, req.Password)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, err)
 		return
 	}
 }
 
-func handleDeleteUser(ctx context.Context, service domain.IUserService, w http.ResponseWriter, r *http.Request) {
+func handleDeleteUser(ctx context.Context, hp HandlerProperties, w http.ResponseWriter, r *http.Request) {
 	// TODO: Implement me
 	panic("Implement me")
 }
 
-func handleGetUser(ctx context.Context, service domain.IUserService, w http.ResponseWriter, r *http.Request) {
+func handleGetUser(ctx context.Context, hp HandlerProperties, w http.ResponseWriter, r *http.Request) {
 	// TODO: Implement me
 	panic("Implement me")
 }
 
-func handleUpdateUser(ctx context.Context, service domain.IUserService, w http.ResponseWriter, r *http.Request) {
+func handleUpdateUser(ctx context.Context, hp HandlerProperties, w http.ResponseWriter, r *http.Request) {
 	// TODO: Implement me
 	panic("Implement me")
 }
