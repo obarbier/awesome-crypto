@@ -18,14 +18,8 @@ jobs:
       with:
         # The Go version to download (if necessary) and use. Supports semver spec and ranges.
         go-version: 1.17
-    - name: configure
-      run: ./configure
       
-    - name: Install dependencies
+    - name: Test User service
       run: make
-      
-    - name: Run check
-      run: make check
-      
-    - name: Run distcheck
-      run: make distcheck
+      working-directory: user_api
+
