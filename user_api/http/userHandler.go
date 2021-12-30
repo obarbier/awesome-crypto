@@ -2,22 +2,22 @@ package http
 
 import (
 	"context"
+	"github.com/obarbier/awesome-crypto/user_api/domain"
 	"net/http"
 )
 
 type UserCreateRequest struct {
-	FirstName string `json:"firstName" validate:"required"`
-	LastName  string `json:"lastName"  validate:"required"`
-	UserId    string `json:"userId"    validate:"required"`
-	Password  string `json:"password"  validate:"required"`
+	FirstName string `json:"firstName" validate:"required,min=1"`
+	LastName  string `json:"lastName"  validate:"required,min=1"`
+	UserId    string `json:"userId"    validate:"required,min=3"`
+	Password  string `json:"password"  validate:"required,min=6"`
 }
 
-type UserCreateResponse struct {
-	Id        string `json:"id"`
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-	UserId    string `json:"userId"`
-	Password  string `json:"password"`
+type UserUpdateRequest struct {
+	FirstName string `json:"firstName,omitempty" validate:"required,min=1"`
+	LastName  string `json:"lastName,omitempty"  validate:"required,min=1"`
+	UserId    string `json:"userId,omitempty"    validate:"required,min=3"`
+	Password  string `json:"password,omitempty"  validate:"required,min=6"`
 }
 
 func handleUserOperation(hp HandlerProperties) http.Handler {
@@ -55,24 +55,71 @@ func handleCreateUser(ctx context.Context, hp HandlerProperties, w http.Response
 		return
 	}
 
-	_, err = hp.userService.CreateUser(ctx, req.FirstName, req.LastName, req.UserId, req.Password)
+	userRes, err := hp.userService.CreateUser(ctx, req.FirstName, req.LastName, req.UserId, req.Password)
 	if err != nil {
 		respondError(w, http.StatusBadRequest, err)
 		return
 	}
+
+	respondWithStatus(w, userRes, http.StatusCreated)
 }
 
 func handleDeleteUser(ctx context.Context, hp HandlerProperties, w http.ResponseWriter, r *http.Request) {
-	// TODO: Implement me
-	panic("Implement me")
+	id := r.URL.Query().Get("id")
+
+	err := hp.validate.Var(id, "required,uuid")
+	if err != nil {
+		respondError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	err = hp.userService.DeleteUser(ctx, id)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	respondWithStatus(w, nil, http.StatusNoContent)
+
 }
 
 func handleGetUser(ctx context.Context, hp HandlerProperties, w http.ResponseWriter, r *http.Request) {
-	// TODO: Implement me
-	panic("Implement me")
+	id := r.URL.Query().Get("id")
+
+	err := hp.validate.Var(id, "required,uuid")
+	if err != nil {
+		respondError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	user, err := hp.userService.GetUserById(ctx, id)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	respondWithStatus(w, user, http.StatusOK)
 }
 
 func handleUpdateUser(ctx context.Context, hp HandlerProperties, w http.ResponseWriter, r *http.Request) {
-	// TODO: Implement me
-	panic("Implement me")
+	var req UserUpdateRequest
+	if _, err := parseJSONRequest(r, w, &req); err != nil {
+		respondError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	id := r.URL.Query().Get("id")
+	err := hp.validate.Var(id, "required,uuid")
+	if err != nil {
+		respondError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	err = hp.userService.UpdateUser(ctx, id, req.FirstName, req.LastName, req.UserId, req.Password)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	respondWithStatus(w, domain.User{}, http.StatusOK)
 }

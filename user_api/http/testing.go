@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/go-playground/validator/v10"
 	"github.com/hashicorp/go-cleanhttp"
 	"github.com/obarbier/awesome-crypto/user_api/adapters"
 	"github.com/obarbier/awesome-crypto/user_api/domain"
@@ -47,6 +48,7 @@ func TestServerWithListener(tb testing.TB, ln net.Listener, addr string, service
 	props := HandlerProperties{
 		userService:  service,
 		recoveryMode: false,
+		validate:     validator.New(),
 	}
 	TestServerWithListenerAndProperties(tb, ln, addr, service, props)
 }

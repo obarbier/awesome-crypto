@@ -10,7 +10,7 @@ type User struct {
 	FirstName    string `json:"firstName" bson:"firstName,omitempty"`
 	LastName     string `json:"lastName" bson:"lastName,omitempty"`
 	UserId       string `json:"userId" bson:"userId,omitempty"`
-	PasswordHash string `json:"passwordHash" bson:"passwordHash,omitempty"`
+	PasswordHash string `json:"-" bson:"passwordHash,omitempty"`
 }
 
 // IsCorrectPassword checks if the provided password is correct or not

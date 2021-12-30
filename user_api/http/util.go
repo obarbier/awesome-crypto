@@ -6,13 +6,44 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 )
 
-func respondError(w http.ResponseWriter, allowed int, t interface{}) {
+func respondError(w http.ResponseWriter, status int, err error) {
 
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+
+	type ErrorResponse struct {
+		Errors []string `json:"errors"`
+	}
+	resp := &ErrorResponse{Errors: make([]string, 0, 1)}
+	if err != nil {
+		resp.Errors = append(resp.Errors, err.Error())
+	}
+
+	enc := json.NewEncoder(w)
+	encodingErr := enc.Encode(resp)
+	if encodingErr != nil {
+		log.Printf("%s", encodingErr.Error())
+	}
 }
 
+func respondWithStatus(w http.ResponseWriter, body interface{}, status int) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if body == nil {
+		w.WriteHeader(http.StatusNoContent)
+	} else {
+		w.WriteHeader(status)
+		enc := json.NewEncoder(w)
+		encodingErr := enc.Encode(body)
+		if encodingErr != nil {
+			log.Printf("%s", encodingErr.Error())
+		}
+	}
+}
 func parseJSONRequest(r *http.Request, w http.ResponseWriter, out interface{}) (io.ReadCloser, error) {
 	// Limit the maximum number of bytes to MaxRequestSize to protect
 	// against an indefinite amount of data being read.
