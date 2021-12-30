@@ -2,28 +2,84 @@ package adapters
 
 import (
 	"context"
+	"github.com/obarbier/awesome-crypto/user_api/domain"
+	"github.com/stretchr/testify/assert"
+	"strings"
 	"testing"
 )
 
 var repo, _ = NewMongoRepository()
 
-func TestCreateUser(t *testing.T) {
-	_, err := repo.Save(context.Background(), "John", "Doe", "jDoe", "passwordHash")
+func TestUserManagement(t *testing.T) {
+	user := domain.User{
+		Id:           "unit-test-id",
+		FirstName:    "John",
+		LastName:     "Doe",
+		UserId:       "jDoe",
+		PasswordHash: "passwordHash",
+	}
+	err := repo.Save(context.Background(), &user)
 	if err != nil {
 		t.Fatal(err)
 	}
+	id := user.Id
+
+	userUpdate := &domain.User{
+		UserId: "jDoeUpdate",
+	}
+	err = repo.UpdateByID(context.Background(), id, userUpdate)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	user2, err := repo.FindById(context.Background(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, user.FirstName, user2.FirstName)
+	assert.Equal(t, user.LastName, user2.LastName)
+	assert.NotEqual(t, user.UserId, user2.UserId)
+	assert.Equal(t, userUpdate.UserId, user2.UserId)
+	assert.Equal(t, user.PasswordHash, user2.PasswordHash)
+
+	err = repo.DeleteById(context.Background(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	emptyUser, err := repo.FindById(context.Background(), id)
+	if err != nil {
+		assert.True(t, strings.Contains(err.Error(), "no documents in result"))
+	}
+	assert.Nil(t, emptyUser, "user should not be in db")
+
 }
 
-func TestGetUserByUserId(t *testing.T) {
-	_, err := repo.Get(context.Background(), "df3f55b4-6853-11ec-84e8-c85b768b87cd")
+func TestUserManagementInvalidFlow(t *testing.T) {
+	user := domain.User{
+		Id:           "unit-test-id",
+		FirstName:    "John",
+		LastName:     "Doe",
+		UserId:       "jDoe",
+		PasswordHash: "passwordHash",
+	}
+	err := repo.Save(context.Background(), &user)
 	if err != nil {
 		t.Fatal(err)
 	}
-}
+	id := user.Id
+	userUpdate := &domain.User{
+		UserId: "jDoeUpdate",
+	}
+	err = repo.UpdateByID(context.Background(), "Not-valid-Id", userUpdate)
+	if err != nil {
+		assert.True(t, strings.Contains(err.Error(), "no user with Id"))
+	}
 
-func TestUpdateUserByUserId(t *testing.T) {
-	_, err := repo.Update(context.Background(), "df3f55b4-6853-11ec-84e8-c85b768b87cd", "John2", "Doe2", "jDoe2", "passwordHash2")
+	err = repo.DeleteById(context.Background(), id)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 }

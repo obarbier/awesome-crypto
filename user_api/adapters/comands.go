@@ -19,7 +19,17 @@ type updateStatement struct {
 	Updates bson.D `bson:"u"`
 }
 
+type deleteStatement struct {
+	Query bson.D `bson:"q"`
+	Limit int    `bson:"limit"`
+}
+
 type updateUserCommand struct {
 	Collection string            `bson:"update"`
 	Updates    []updateStatement `bson:"updates"`
+}
+
+type deleteUserCommand struct {
+	Collection string            `bson:"delete"`
+	Deletes    []deleteStatement `bson:"deletes"`
 }
