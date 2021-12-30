@@ -1,9 +1,12 @@
 .PHONY: go-generate test
 
+GO_CMD?=go
+
 bootstrap:
-	go generate -tags tools tools/tools.go
+	$(GO_CMD) generate -tags tools tools/tools.go
 
 go-generate:
-	go generate ./domain/ports.go
+	$(GO_CMD) generate ./domain/ports.go
+
 test:
-	go test
+	$(GO_CMD) test

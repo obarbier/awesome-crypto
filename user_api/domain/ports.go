@@ -2,22 +2,22 @@ package domain
 
 import (
 	"context"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/google/uuid"
 )
 
 //go:generate mockgen -destination=./mock_user_repo.go -package=domain github.com/obarbier/awesome-crypto/user_api/domain UserRepository
 type UserRepository interface {
-	Save(ctx context.Context, firstName, lastName, userId, passwordHash string) (User, error)
-	Update(ctx context.Context, id, firstName, lastName, userId, passwordHash string) (User, error)
-	Get(ctx context.Context, userId string) (User, error)
-	Delete(ctx context.Context, userId string) error
+	Save(ctx context.Context, user *User) error
+	UpdateByID(ctx context.Context, id string, user *User) error
+	FindById(ctx context.Context, id string) (*User, error)
+	DeleteById(ctx context.Context, id string) error
 }
 
 type IUserService interface {
-	CreateUser(ctx context.Context, firstName, lastName, userId, password string) (User, error)
-	UpdateUser(ctx context.Context, id, firstName, lastName, userId, password string) (User, error)
-	GetUserById(ctx context.Context, userId string) (User, error)
-	DeleteUser(ctx context.Context, userId string) error
+	CreateUser(ctx context.Context, firstName, lastName, userId, password string) (*User, error)
+	UpdateUser(ctx context.Context, id, firstName, lastName, userId, password string) error
+	GetUserById(ctx context.Context, id string) (*User, error)
+	DeleteUser(ctx context.Context, id string) error
 }
 
 type UserService struct {
@@ -30,26 +30,56 @@ func NewUserService(userRepository UserRepository) *UserService {
 	}
 }
 
-func (u *UserService) CreateUser(ctx context.Context, firstName, lastName, userId, password string) (User, error) {
-	hashedPassword, hashedPasswordErr := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if hashedPasswordErr != nil {
-		return User{}, hashedPasswordErr
+func (u *UserService) CreateUser(ctx context.Context, firstName, lastName, userId, password string) (*User, error) {
+	hashedPassword, encryptErr := encryptPassword(password)
+	if encryptErr != nil {
+		return nil, encryptErr
 	}
-	hashVerifyErr := bcrypt.CompareHashAndPassword(hashedPassword, []byte(password))
-	if hashVerifyErr != nil {
-		return User{}, hashVerifyErr
+	id, uuidErr := uuid.NewUUID()
+	if uuidErr != nil {
+		return nil, uuidErr
 	}
-	return u.repo.Save(ctx, firstName, lastName, userId, string(hashedPassword))
+	user := &User{
+		Id:           id.String(),
+		FirstName:    firstName,
+		LastName:     lastName,
+		UserId:       userId,
+		PasswordHash: string(hashedPassword),
+	}
+
+	savedErr := u.repo.Save(ctx, user)
+	if savedErr != nil {
+		return nil, savedErr
+	}
+	return user, nil
+
 }
 
-func (u *UserService) UpdateUser(ctx context.Context, id, firstName, lastName, userId, password string) (User, error) {
-	return u.repo.Update(ctx, id, firstName, lastName, userId, password)
+func (u *UserService) UpdateUser(ctx context.Context, id, firstName, lastName, userId, password string) error {
+	updates := &User{}
+	if firstName != "" {
+		updates.FirstName = firstName
+	}
+	if lastName != "" {
+		updates.LastName = lastName
+	}
+	if userId != "" {
+		updates.UserId = userId
+	}
+	if password != "" {
+		hashedPassword, encryptErr := encryptPassword(password)
+		if encryptErr != nil {
+			return encryptErr
+		}
+		updates.PasswordHash = string(hashedPassword)
+	}
+	return u.repo.UpdateByID(ctx, id, updates)
 }
 
-func (u *UserService) GetUserById(ctx context.Context, userId string) (User, error) {
-	return u.repo.Get(ctx, userId)
+func (u *UserService) GetUserById(ctx context.Context, id string) (*User, error) {
+	return u.repo.FindById(ctx, id)
 }
 
-func (u *UserService) DeleteUser(ctx context.Context, userId string) error {
-	return u.repo.Delete(ctx, userId)
+func (u *UserService) DeleteUser(ctx context.Context, id string) error {
+	return u.repo.DeleteById(ctx, id)
 }
