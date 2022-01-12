@@ -1,4 +1,4 @@
-package http
+package handler
 
 import (
 	"encoding/json"
@@ -57,7 +57,7 @@ func parseJSONRequest(r *http.Request, w http.ResponseWriter, out interface{}) (
 		}
 		if max > 0 {
 			// MaxBytesReader won't do all the internal stuff it must unless it's
-			// given a ResponseWriter that implements the internal http interface
+			// given a ResponseWriter that implements the internal handler interface
 			// requestTooLarger.  So we let it have access to the underlying
 			// ResponseWriter.
 			inw := w

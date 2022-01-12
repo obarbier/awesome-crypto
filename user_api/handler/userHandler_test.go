@@ -1,4 +1,4 @@
-package http
+package handler
 
 import (
 	"encoding/json"
@@ -43,6 +43,24 @@ func TestUserCreate(t *testing.T) {
 	resp4 := testHttpDelete(t, token, addr+"/v1/user?id="+id)
 	testResponseStatus(t, resp4, http.StatusNoContent)
 
+}
+
+func TestValidation(t *testing.T) {
+	service := TestUserService(t)
+	ln, addr := TestServer(t, service)
+	defer func(ln net.Listener) {
+		err := ln.Close()
+		if err != nil {
+			// TODO: handle error
+		}
+	}(ln)
+	token := ""
+	resp := testHttpPost(t, token, addr+"/v1/user", map[string]interface{}{
+		"firstName": "noop",
+		"userId":    "foo",
+	})
+
+	testResponseStatus(t, resp, http.StatusBadRequest)
 }
 
 func getResponse(resp *http.Response) map[string]interface{} {

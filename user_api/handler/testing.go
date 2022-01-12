@@ -1,10 +1,9 @@
-package http
+package handler
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/go-playground/validator/v10"
 	"github.com/hashicorp/go-cleanhttp"
 	"github.com/obarbier/awesome-crypto/user_api/adapters"
 	"github.com/obarbier/awesome-crypto/user_api/domain"
@@ -12,6 +11,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/cookiejar"
+	"net/url"
 	"regexp"
 	"strings"
 	"testing"
@@ -45,19 +46,15 @@ func TestServerWithListener(tb testing.TB, ln net.Listener, addr string, service
 
 	// Create a muxer to handle our requests so that we can authenticate
 	// for tests.
-	props := HandlerProperties{
-		userService:  service,
-		recoveryMode: false,
-		validate:     validator.New(),
-	}
+	props := NewPropertiesHandler(service, false)
 	TestServerWithListenerAndProperties(tb, ln, addr, service, props)
 }
 
-func TestServerWithListenerAndProperties(tb testing.TB, ln net.Listener, addr string, service domain.IUserService, props HandlerProperties) {
+func TestServerWithListenerAndProperties(tb testing.TB, ln net.Listener, addr string, service domain.IUserService, props PropertiesHandler) {
 	// Create a muxer to handle our requests so that we can authenticate
 	// for tests.
 	mux := http.NewServeMux()
-	//mux.Handle("/_test/auth", http.HandlerFunc(testHandleAuth))
+	//mux.Handle("/_test/auth", handler.HandlerFunc(testHandleAuth))
 	mux.Handle("/", Handler(props))
 
 	server := &http.Server{
@@ -107,55 +104,71 @@ func testHttpGet(t *testing.T, token string, addr string) *http.Response {
 		loggedToken = "<empty>"
 	}
 	t.Logf("Token is %s", loggedToken)
-	return testHttpData(t, "GET", token, addr, nil, false, 0)
+	return testHttpData(t, "GET", token, addr, nil, false, 0, false, nil)
 }
 
 func testHttpDelete(t *testing.T, token string, addr string) *http.Response {
-	return testHttpData(t, "DELETE", token, addr, nil, false, 0)
+	return testHttpData(t, "DELETE", token, addr, nil, false, 0, false, nil)
 }
 
 // Go 1.8+ clients redirect automatically which breaks our 307 standby testing
 func testHttpDeleteDisableRedirect(t *testing.T, token string, addr string) *http.Response {
-	return testHttpData(t, "DELETE", token, addr, nil, true, 0)
+	return testHttpData(t, "DELETE", token, addr, nil, true, 0, false, nil)
 }
 
 func testHttpPostWrapped(t *testing.T, token string, addr string, body interface{}, wrapTTL time.Duration) *http.Response {
-	return testHttpData(t, "POST", token, addr, body, false, wrapTTL)
+	return testHttpData(t, "POST", token, addr, body, false, wrapTTL, false, nil)
 }
 
 func testHttpPost(t *testing.T, token string, addr string, body interface{}) *http.Response {
-	return testHttpData(t, "POST", token, addr, body, false, 0)
+	return testHttpData(t, "POST", token, addr, body, false, 0, false, nil)
+}
+func testHttpWithCookiePost(t *testing.T, token string, addr string, body interface{}, cookiejar http.CookieJar) *http.Response {
+	return testHttpData(t, "POST", token, addr, body, false, 0, false, cookiejar)
+}
+func testHttpFormDataPost(t *testing.T, token string, addr string, body interface{}, cookiejar http.CookieJar) *http.Response {
+	return testHttpData(t, "POST", token, addr, body, false, 0, true, cookiejar)
 }
 
 func testHttpPut(t *testing.T, token string, addr string, body interface{}) *http.Response {
-	return testHttpData(t, "PUT", token, addr, body, false, 0)
+	return testHttpData(t, "PUT", token, addr, body, false, 0, false, nil)
 }
 
 // Go 1.8+ clients redirect automatically which breaks our 307 standby testing
-func testHttpPutDisableRedirect(t *testing.T, token string, addr string, body interface{}) *http.Response {
-	return testHttpData(t, "PUT", token, addr, body, true, 0)
+func testHttpPutDisableRedirect(t *testing.T, token string, addr string, body interface{}, isFormData bool) *http.Response {
+	return testHttpData(t, "PUT", token, addr, body, true, 0, isFormData, nil)
 }
 
-func testHttpData(t *testing.T, method string, token string, addr string, body interface{}, disableRedirect bool, wrapTTL time.Duration) *http.Response {
+func testHttpData(t *testing.T, method string, token string, addr string, body interface{}, disableRedirect bool, wrapTTL time.Duration, isFormData bool, cookieJar http.CookieJar) *http.Response {
 	bodyReader := new(bytes.Buffer)
+	req := new(http.Request)
 	if body != nil {
-		enc := json.NewEncoder(bodyReader)
-		if err := enc.Encode(body); err != nil {
-			t.Fatalf("err:%s", err)
+		if isFormData {
+			formDataRequest, err := http.NewRequest(method, addr, strings.NewReader(body.(url.Values).Encode()))
+			if err != nil {
+				t.Fatalf("err: %s", err)
+			}
+			req = formDataRequest
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		} else {
+			enc := json.NewEncoder(bodyReader)
+			if err := enc.Encode(body); err != nil {
+				t.Fatalf("err:%s", err)
+			}
+			jsoRequest, err := http.NewRequest(method, addr, bodyReader)
+			if err != nil {
+				t.Fatalf("err: %s", err)
+			}
+			req = jsoRequest
+			req.Header.Set("Content-Type", "application/json")
 		}
-	}
 
-	req, err := http.NewRequest(method, addr, bodyReader)
-	if err != nil {
-		t.Fatalf("err: %s", err)
 	}
 
 	// Get the address of the local listener in order to attach it to an Origin header.
 	// This will allow for the testing of requests that require CORS, without using a browser.
 	hostURLRegexp, _ := regexp.Compile("http[s]?://.+:[0-9]+")
 	req.Header.Set("Origin", hostURLRegexp.FindString(addr))
-
-	req.Header.Set("Content-Type", "application/json")
 
 	if wrapTTL > 0 {
 		req.Header.Set("X-Vault-Wrap-TTL", wrapTTL.String())
@@ -166,6 +179,18 @@ func testHttpData(t *testing.T, method string, token string, addr string, body i
 	//}
 
 	client := cleanhttp.DefaultClient()
+	if true {
+		// default to using cookie for now cookieJar
+		if cookieJar == nil {
+			var err error
+			cookieJar, err = cookiejar.New(nil)
+			if err != nil {
+				log.Fatalf("Got error while creating cookie jar %s", err.Error())
+			}
+		}
+		client.Jar = cookieJar
+
+	}
 	client.Timeout = 60 * time.Second
 
 	// From https://github.com/michiwend/gomusicbrainz/pull/4/files

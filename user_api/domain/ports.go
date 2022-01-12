@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"fmt"
 	"github.com/google/uuid"
 )
 
@@ -24,6 +25,8 @@ type UserService struct {
 	repo UserRepository
 }
 
+var _ IUserService = (*UserService)(nil)
+
 func NewUserService(userRepository UserRepository) *UserService {
 	return &UserService{
 		repo: userRepository,
@@ -31,6 +34,18 @@ func NewUserService(userRepository UserRepository) *UserService {
 }
 
 func (u *UserService) CreateUser(ctx context.Context, firstName, lastName, userId, password string) (*User, error) {
+	if len(firstName) == 0 {
+		return nil, fmt.Errorf("FirstName cannot be empty")
+	}
+	if len(lastName) == 0 {
+		return nil, fmt.Errorf("LastName cannot be empty")
+	}
+	if len(userId) == 0 {
+		return nil, fmt.Errorf("UserId cannot be empty")
+	}
+	if len(password) == 0 {
+		return nil, fmt.Errorf("password cannot be empty")
+	}
 	hashedPassword, encryptErr := encryptPassword(password)
 	if encryptErr != nil {
 		return nil, encryptErr

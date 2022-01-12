@@ -1,4 +1,4 @@
-package adapters
+package common
 
 import (
 	"context"
@@ -11,17 +11,18 @@ import (
 	"time"
 )
 
-type mongoConnection struct {
+type MongoConnection struct {
 	ConnectionURL string
 	Username      string
 	Password      string
 	client        *mongo.Client
 	clientOptions *options.ClientOptions
-	initialized   bool
+	Initialized   bool
 	sync.Mutex
 }
 
-func (c *mongoConnection) loadConfig() error {
+func (c *MongoConnection) LoadConfig() error {
+	// FIXME
 	viper.SetConfigName("config")
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("../")
@@ -34,15 +35,15 @@ func (c *mongoConnection) loadConfig() error {
 	if err != nil {
 		return fmt.Errorf("unable to decode into struct, %v", err)
 	}
-	opts, err := c.makeClientOpts()
+	opts, err := c.MakeClientOpts()
 	if err != nil {
 		return err
 	}
-
+	// TODO: Add index similar to https://github.com/go-session/mongo/blob/master/mongo.go#L35
 	c.clientOptions = opts
 	return nil
 }
-func (c *mongoConnection) makeClientOpts() (*options.ClientOptions, error) {
+func (c *MongoConnection) MakeClientOpts() (*options.ClientOptions, error) {
 	//writeOpts, err := c.getWriteConcern()
 	//if err != nil {
 	//	return nil, err
@@ -61,8 +62,8 @@ func (c *mongoConnection) makeClientOpts() (*options.ClientOptions, error) {
 	opts := options.MergeClientOptions()
 	return opts, nil
 }
-func (c *mongoConnection) createClient(ctx context.Context) (client *mongo.Client, err error) {
-	if !c.initialized {
+func (c *MongoConnection) CreateClient(ctx context.Context) (client *mongo.Client, err error) {
+	if !c.Initialized {
 		return nil, fmt.Errorf("failed to create client: connection producer is not initialized")
 	}
 	if c.clientOptions == nil {
@@ -76,7 +77,7 @@ func (c *mongoConnection) createClient(ctx context.Context) (client *mongo.Clien
 }
 
 // Close terminates the database connection.
-func (c *mongoConnection) Close() error {
+func (c *MongoConnection) Close() error {
 	c.Lock()
 	defer c.Unlock()
 
@@ -93,8 +94,8 @@ func (c *mongoConnection) Close() error {
 	return nil
 }
 
-func (c *mongoConnection) verifyConnection(ctx context.Context) error {
-	client, err := c.createClient(ctx)
+func (c *MongoConnection) VerifyConnection(ctx context.Context) error {
+	client, err := c.CreateClient(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to verify connection: %w", err)
 	}
@@ -107,8 +108,8 @@ func (c *mongoConnection) verifyConnection(ctx context.Context) error {
 	return nil
 }
 
-func (c *mongoConnection) Connection(ctx context.Context) (*mongo.Client, error) {
-	if !c.initialized {
+func (c *MongoConnection) Connection(ctx context.Context) (*mongo.Client, error) {
+	if !c.Initialized {
 		return nil, fmt.Errorf("database client is not initialized")
 	}
 
@@ -123,7 +124,7 @@ func (c *mongoConnection) Connection(ctx context.Context) (*mongo.Client, error)
 		_ = c.client.Disconnect(ctx)
 	}
 
-	client, err := c.createClient(ctx)
+	client, err := c.CreateClient(ctx)
 	if err != nil {
 		return nil, err
 	}

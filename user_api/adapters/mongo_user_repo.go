@@ -3,6 +3,7 @@ package adapters
 import (
 	"context"
 	"fmt"
+	"github.com/obarbier/awesome-crypto/common"
 	"github.com/obarbier/awesome-crypto/user_api/domain"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -14,20 +15,24 @@ const (
 )
 
 type MongoRepository struct {
-	*mongoConnection
+	*common.MongoConnection
 	db *mongo.Database
 }
 
+// Used to verify interface compliance at compile time
+// as proposed by https://github.com/uber-go/guide/blob/master/style.md#verify-interface-compliance
+var _ domain.UserRepository = MongoRepository{}
+
 func NewMongoRepository() (*MongoRepository, error) {
 	m := &MongoRepository{
-		mongoConnection: &mongoConnection{},
+		MongoConnection: &common.MongoConnection{},
 	}
-	loadConfigError := m.mongoConnection.loadConfig()
+	loadConfigError := m.MongoConnection.LoadConfig()
 	if loadConfigError != nil {
 		return m, loadConfigError
 	}
-	m.initialized = true
-	err := m.verifyConnection(context.Background())
+	m.Initialized = true
+	err := m.VerifyConnection(context.Background())
 	if err != nil {
 		return nil, err
 	}
