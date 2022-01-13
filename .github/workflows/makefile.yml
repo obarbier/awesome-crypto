@@ -27,4 +27,6 @@ jobs:
     - name: Test User service
       run: make test
       working-directory: user_api
-
+    - name: Test crypto service
+      run: make test
+      working-directory: crypto_service_api
