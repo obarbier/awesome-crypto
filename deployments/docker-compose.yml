@@ -1,0 +1,76 @@
+version: "3.9"  # optional since v1.27.0
+services:
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    volumes:
+      - ../configs/nginx.conf:/etc/nginx/nginx.conf
+    ports:
+      - "8081:8081"
+      - "443:443"
+    depends_on:
+      - user
+      - oauth
+      - crypto
+    links:
+      - user
+      - oauth
+      - crypto
+    networks:
+      - network-backend
+
+  mongo:
+    image: mongo
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    networks:
+      - network-backend
+  oauth:
+    image: obarbier/awesome-crypto-oauth
+    container_name: oauth
+    ports:
+      - "2021:2021"
+    depends_on:
+      - mongo
+    links:
+      - mongo
+    networks:
+      - network-backend
+    volumes:
+      - logvolume01:/var/log
+  crypto:
+    image: obarbier/awesome-crypto-crypto
+    container_name: crypto
+    ports:
+      - "2022:2022"
+    depends_on:
+      - mongo
+    links:
+      - mongo
+    networks:
+      - network-backend
+    volumes:
+      - logvolume01:/var/log
+  user:
+    image: obarbier/awesome-crypto-user
+    container_name: user
+    ports:
+      - "2023:2023"
+    depends_on:
+      - mongo
+    links:
+      - mongo
+    networks:
+      - network-backend
+    volumes:
+      - logvolume01:/var/log
+
+
+
+volumes:
+  logvolume01: { }
+
+networks:
+  network-backend:
+    driver: bridge
